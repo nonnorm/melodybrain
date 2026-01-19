@@ -41,12 +41,17 @@ fn main() {
 
         let now = Instant::now();
 
-        let country = if let Some(addr_info) = active_addrs.get_mut(&addr.ip()) {
+        if let Some(addr_info) = active_addrs.get_mut(&addr.ip()) {
             if now.duration_since(addr_info.last_seen) > Duration::from_secs(10) {
                 addr_info.last_seen = now;
-            }
+                global_seed += (heartbeat.seed as i64 - global_seed) / 2000;
 
-            addr_info.country
+                if let Some(country) = addr_info.country
+                    && let Some(country_seed) = country_seeds.get_mut(&country)
+                {
+                    *country_seed += (heartbeat.seed as i64 - *country_seed) / 2000;
+                };
+            }
         } else {
             let country = geoip
                 .lookup(addr.ip())
@@ -68,18 +73,18 @@ fn main() {
                 },
             );
 
-            country
-        };
+            // No, it's not DRY. But it does work for now.
+            global_seed += (heartbeat.seed as i64 - global_seed) / 2000;
+            if let Some(country) = country
+                && let Some(country_seed) = country_seeds.get_mut(&country)
+            {
+                *country_seed += (heartbeat.seed as i64 - *country_seed) / 2000;
+            };
+        }
 
-        global_seed += (heartbeat.seed as i64 - global_seed) / 2000;
-        if let Some(country) = country
-            && let Some(country_seed) = country_seeds.get_mut(&country)
-        {
-            *country_seed += (heartbeat.seed as i64 - *country_seed) / 2000;
-        };
-
-        let stats = if let Some(country_seed) = country_seeds.get(&heartbeat.wants_country) {
-            dbg!(heartbeat.wants_country, country_seed);
+        let stats = if heartbeat.wants_country == 0 {
+            continue;
+        } else if let Some(country_seed) = country_seeds.get(&heartbeat.wants_country) {
             Stats {
                 connected: active_addrs
                     .values()

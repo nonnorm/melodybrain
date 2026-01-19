@@ -61,16 +61,13 @@ enum SeedType {
 
 #[axum::debug_handler]
 async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json<Data> {
-    state.wants_country.store(
-        encode_code(form.country.to_ascii_uppercase().as_bytes()),
-        Ordering::Relaxed,
-    );
-
-    state.notify.notify_waiters();
+    let stats = state
+        .send_heartbeat(encode_code(form.country.to_ascii_uppercase().as_bytes()))
+        .await;
 
     let seed = match form.seed {
         SeedType::Local => state.local_seed.load(Ordering::Relaxed),
-        SeedType::Global => state.other_seed.load(Ordering::Relaxed),
+        SeedType::Global => stats.seed,
         SeedType::NewLocal => {
             // This probably violates some rule of atomics, but at least it won't cause UB
             let new = generate_seed();
@@ -85,6 +82,6 @@ async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json
     Json(Data {
         notes,
         seed,
-        connected: state.connected.load(Ordering::Relaxed),
+        connected: stats.connected,
     })
 }

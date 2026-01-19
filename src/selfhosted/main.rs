@@ -17,10 +17,6 @@ mod udp;
 pub struct State {
     pub sock: UdpSocket,
     pub local_seed: AtomicI32,
-    pub other_seed: AtomicI32,
-    pub connected: AtomicU32,
-    pub wants_country: AtomicU16,
-    pub notify: Notify,
 }
 
 fn generate_seed() -> i32 {
@@ -48,10 +44,6 @@ async fn main() {
     let state = Arc::new(State {
         sock: connector,
         local_seed: AtomicI32::new(generate_seed()),
-        other_seed: AtomicI32::default(),
-        connected: AtomicU32::default(),
-        wants_country: AtomicU16::new(WORLDWIDE),
-        notify: Notify::new(),
     });
 
     tokio::spawn(udp::heartbeats(Arc::clone(&state)));

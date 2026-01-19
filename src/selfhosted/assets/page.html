@@ -68,6 +68,14 @@
             }
         }
 
+        #world-map [id] {
+            cursor: pointer;
+
+            &.active {
+                fill: #67b9fc;
+            }
+        }
+
         section {
             background: var(--color-primary);
             padding: 1rem;
@@ -550,7 +558,12 @@
         for (const countryEl of worldMapEl.querySelectorAll("[id]")) {
             if (countryEl.id.length === 2)
                 countryEl.onclick = () => {
-                    selected_country = countryEl.id;
+                    document.getElementById(selected_country)?.classList.remove("active");
+                    if (selected_country === countryEl.id) selected_country = "XW";
+                    else {
+                        selected_country = countryEl.id;
+                        countryEl.classList.add("active");
+                    }
                     restartCtx();
                 }
         }
