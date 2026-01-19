@@ -10,6 +10,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use melodybrain::encode_code;
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
@@ -46,6 +47,7 @@ pub struct Data {
 pub struct DataForm {
     idx: u32,
     seed: SeedType,
+    country: String,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -59,6 +61,13 @@ enum SeedType {
 
 #[axum::debug_handler]
 async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json<Data> {
+    state.wants_country.store(
+        encode_code(form.country.to_ascii_uppercase().as_bytes()),
+        Ordering::Relaxed,
+    );
+
+    state.notify.notify_waiters();
+
     let seed = match form.seed {
         SeedType::Local => state.local_seed.load(Ordering::Relaxed),
         SeedType::Global => state.other_seed.load(Ordering::Relaxed),
@@ -69,6 +78,8 @@ async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json
             new
         }
     };
+
+    dbg!(seed);
 
     let notes: Vec<_> = NoteGenerator::new(form.idx, seed).take(128).collect();
     Json(Data {

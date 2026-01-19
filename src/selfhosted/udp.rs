@@ -6,7 +6,7 @@ use std::{
 use melodybrain::{Heartbeat, Stats};
 use tokio::{
     net::UdpSocket,
-    time::{Interval, MissedTickBehavior, interval},
+    time::{Interval, MissedTickBehavior, interval, timeout},
 };
 
 use crate::http::ArcState;
@@ -18,10 +18,13 @@ pub async fn heartbeats(state: ArcState) {
     let mut buf = [0; 32];
 
     loop {
-        interval.tick().await;
+        let _ = timeout(Duration::from_secs(15), state.notify.notified()).await;
 
         let local_seed = state.local_seed.load(Ordering::Relaxed);
-        let heartbeat = Heartbeat(local_seed);
+        let heartbeat = Heartbeat {
+            seed: local_seed,
+            wants_country: state.wants_country.load(Ordering::Relaxed),
+        };
         let msg = postcard::to_slice(&heartbeat, &mut buf).unwrap();
         let _ = state.sock.send(msg).await;
 

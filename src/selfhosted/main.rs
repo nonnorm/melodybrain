@@ -1,9 +1,13 @@
 use std::sync::{
     Arc,
-    atomic::{AtomicI32, AtomicU32},
+    atomic::{AtomicI32, AtomicU16, AtomicU32},
 };
 
-use tokio::net::{TcpListener, UdpSocket};
+use melodybrain::{WORLDWIDE, encode_code};
+use tokio::{
+    net::{TcpListener, UdpSocket},
+    sync::Notify,
+};
 
 mod http;
 mod notes;
@@ -15,6 +19,8 @@ pub struct State {
     pub local_seed: AtomicI32,
     pub other_seed: AtomicI32,
     pub connected: AtomicU32,
+    pub wants_country: AtomicU16,
+    pub notify: Notify,
 }
 
 fn generate_seed() -> i32 {
@@ -44,6 +50,8 @@ async fn main() {
         local_seed: AtomicI32::new(generate_seed()),
         other_seed: AtomicI32::default(),
         connected: AtomicU32::default(),
+        wants_country: AtomicU16::new(WORLDWIDE),
+        notify: Notify::new(),
     });
 
     tokio::spawn(udp::heartbeats(Arc::clone(&state)));
