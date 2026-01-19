@@ -36,8 +36,7 @@ async fn main() {
         .expect("failed to bind UDP socket");
 
     connector
-        // .connect("ravenclaw900.duckdns.org:2026")
-        .connect("localhost:2026")
+        .connect("ravenclaw900.duckdns.org:2026")
         .await
         .expect("failed to connect to main server - run your own perhaps ;)");
 

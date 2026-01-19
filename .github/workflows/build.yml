@@ -1,0 +1,44 @@
+name: Build MelodyBrain Binaries
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        job:
+          - { target: x86_64-unknown-linux-gnu, pretty: linux-x86_64 }
+          - { target: arm-unknown-linux-gnueabihf, pretty: linux-armv6 }
+          - { target: armv7-unknown-linux-gnueabihf, pretty: linux-armv7 }
+          - { target: aarch64-unknown-linux-gnu, pretty: linux-arm64 }
+          - { target: riscv64gc-unknown-linux-gnu, pretty: linux-riscv64 }
+          - { target: x86_64-apple-darwin, pretty: darwin-x86_64 }
+          - { target: aarch64-apple-darwin, pretty: darwin-aarch64 }
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        rust-version: stable
+
+    - name: Install cross
+      run: cargo install cross --locked
+
+    - name: Build binary
+      run: |
+        cross build --bin melodybrain-client --release --target ${{ matrix.job.target }}
+        mv target/${{ matrix.job.target }}/release/melodybrain-client ./melodybrain
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v6
+      with:
+        name: melodybrain-${{ matrix.pretty }}
+        path: ./melodybrain
