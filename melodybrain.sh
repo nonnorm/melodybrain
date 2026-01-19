@@ -39,7 +39,7 @@ case "$1" in
             exit 1
         fi
         echo "Starting MelodyBrain in background..."
-        nohup "$BIN" > /dev/null &
+        nohup "$BIN" > /dev/null 2>&1 &
         echo $! > "$PID"
         echo "MelodyBrain started on port 33445!"
         ;;

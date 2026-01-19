@@ -48,6 +48,7 @@ chmod +x ./melodybrain.sh
 ## Upcoming Features:
 - Perhaps some level of distribution. A few trusted server nodes will be more resilient than one.
 - Windows support
+- Adding chaos? Randomly change the noise generation seed or reset each seed once a certain number of people contribute to it?
 
 
 
