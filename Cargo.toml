@@ -24,3 +24,4 @@ tokio = { version = "1.49.0", features = ["rt", "macros", "time", "sync"] }
 [profile.release]
 strip = true
 panic = "abort"
+lto = "thin"

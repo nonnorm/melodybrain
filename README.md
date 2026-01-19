@@ -43,7 +43,7 @@ chmod +x ./melodybrain.sh
 
 ## Supported Platforms
 - **macOS** – Intel (x86_64) & Apple Silicon (arm64)
-- **Linux** – x86_64, ARM 64-bit (aarch64/arm64), ARM 32-bit (armv7, armv6), RISC (riscv64)
+- **Linux** – x86_64, ARM 64-bit (aarch64/arm64), ARM 32-bit (armv7, armv6)
 
 ## Upcoming Features:
 - Perhaps some level of distribution. A few trusted server nodes will be more resilient than one.
