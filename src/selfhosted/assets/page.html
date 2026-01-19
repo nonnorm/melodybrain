@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MelodyBrain</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --color-primary: #4A148C;
+            --color-accent: #CE93D8;
+            --color-bg: #F3E5F5;
+            --color-text: #1E1E1E;
+        }
+
+        body,
+        html {
+            height: 100%;
+        }
+
+        body {
+            color: var(--color-text);
+            background: var(--color-bg);
+            font-family: system-ui, sans-serif;
+        }
+
+        main {
+            height: calc(100% - 2rem);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            flex-direction: column;
+        }
+
+        h1 {
+            color: var(--color-primary);
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+        }
+
+        #play {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15vw;
+            min-width: 3rem;
+            width: 20vw;
+            background: rgb(0 0 0 / .2);
+            border: none;
+            border-radius: 99%;
+
+            &::before {
+                opacity: 40%;
+                content: "▶";
+            }
+
+            &.playing::before {
+                opacity: 40%;
+                content: "⏸";
+            }
+        }
+
+        section {
+            background: var(--color-primary);
+            padding-block: 1rem;
+            padding-inline: 8rem;
+            color: white;
+            border-radius: 10px;
+        }
+
+        footer {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>MelodyBrain — What the World is Making</h1>
+        <button id="play" class="play"></button>
+        <section>
+            Current seed: <span id="local-seed">Loading...</span> <br>
+            People connected: <span id="connections">Loading...</span>
+        </section>
+        <select id="seed-selector">
+            <option value="global" selected>Global Seed</option>
+            <option value="new_local">Regenerate Local Seed</option>
+            <option value="local">Local Seed</option>
+        </select>
+    </main>
+    <footer>
+        © 2025 <a href="https://github.com/nonnorm" target="_blank">nonnorm</a> under the MIT license
+    </footer>
+    <script>
+        let ctx = new AudioContext();
+
+        const midiToFrequency = (midiNote) => 440 * 2 ** ((midiNote - 69) / 12);
+
+        const playSingleFrequency = (note, velocity, duration, start, rereq) => {
+            const o = new OscillatorNode(ctx, { frequency: midiToFrequency(note), detune: Math.random() * 6 });
+            const g = new GainNode(ctx, { gain: velocity });
+
+            o.connect(g);
+            g.connect(ctx.destination);
+
+            o.start(start);
+
+            // Sustain: hold until near end of duration
+            g.gain.setTargetAtTime(0, start + duration - 0.2, .1);
+            o.stop(start + duration);
+
+            o.onended = () => {
+                idx += 1;
+                if (rereq) getNewData();
+            }
+        };
+
+        const playEl = document.getElementById("play");
+        const localSeedEl = document.getElementById("local-seed");
+        const connectionsEl = document.getElementById("connections");
+        const selectEl = document.getElementById("seed-selector");
+
+        let selected_seed = selectEl.value;
+        let idx = 0;
+
+        const getNewData = async () => {
+            console.log("running");
+            const req = await fetch(`/data?seed=${selected_seed}&idx=${idx}`);
+            const pitches = await req.json();
+
+            let startTime = ctx.currentTime;
+
+            localSeedEl.textContent = pitches.seed;
+            connectionsEl.textContent = pitches.connected;
+
+            pitches.notes.forEach(({ pitch, velocity, duration }, idx) => {
+                const durSeconds = .2 * duration;
+                playSingleFrequency(pitch, velocity, durSeconds, startTime, idx === pitches.notes.length - 2);
+                startTime += durSeconds * .85;
+            });
+        };
+
+        getNewData();
+
+        playEl.onclick = () => {
+            if (ctx.state === "suspended") ctx.resume();
+            else ctx.suspend();
+            playEl.classList.toggle("playing");
+        }
+
+        selectEl.onchange = (e) => {
+            selected_seed = e.target.value;
+            if (selected_seed === "new_local") e.target.value = "local";
+            ctx.suspend()
+            ctx = new AudioContext();
+            playEl.classList.add("playing");
+            getNewData();
+        }
+    </script>
+</body>
+
+</html>
