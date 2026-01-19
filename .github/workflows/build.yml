@@ -1,15 +1,12 @@
 name: Build MelodyBrain Binaries
 
-on:
-  push:
-    tags:
-      - 'v*.*.*'
-  workflow_dispatch:
+on: workflow_dispatch
 
 jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         job:
           - { target: x86_64-unknown-linux-gnu, pretty: linux-x86_64 }
@@ -27,18 +24,22 @@ jobs:
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        rust-version: stable
+        targets: ${{ matrix.job.target }}
 
-    - name: Install cross
-      run: cargo install cross --locked
+    - name: Set up macOS cross-compiler
+      if: contains(matrix.job.target, 'apple')
+      uses: Timmmm/setup-osxcross@v2
+      with:
+        osx-version: "12.3"
 
     - name: Build binary
       run: |
         cross build --bin melodybrain-client --release --target ${{ matrix.job.target }}
-        mv target/${{ matrix.job.target }}/release/melodybrain-client ./melodybrain
+        cp target/${{ matrix.job.target }}/release/melodybrain-client melodybrain
+        tar -czf melodybrain.tar.gz melodybrain
 
     - name: Upload artifact
       uses: actions/upload-artifact@v6
       with:
-        name: melodybrain-${{ matrix.pretty }}
-        path: ./melodybrain
+        name: melodybrain-${{ matrix.job.pretty }}
+        path: ./melodybrain.tar.gz
