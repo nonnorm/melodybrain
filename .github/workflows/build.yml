@@ -34,7 +34,7 @@ jobs:
 
     - name: Build binary
       run: |
-        cross build --bin melodybrain-client --release --target ${{ matrix.job.target }}
+        cargo build --bin melodybrain-client --release --target ${{ matrix.job.target }}
         cp target/${{ matrix.job.target }}/release/melodybrain-client melodybrain
         tar -czf melodybrain.tar.gz melodybrain
 
