@@ -1,11 +1,16 @@
 use std::{
     collections::HashMap,
+    fs::OpenOptions,
     net::{IpAddr, Ipv6Addr, UdpSocket},
-    time::{Duration, Instant},
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use maxminddb::PathElement;
-use melodybrain::{COUNTRY_CODES, Heartbeat, Stats, encode_code};
+use melodybrain::{Heartbeat, Stats, StoredIpStats, WORLDWIDE, search_country};
+
+use crate::dbs::{GeneralIpDb, GeoIpDb};
+
+mod dbs;
 
 #[derive(Debug)]
 struct AddrInfo {
@@ -15,23 +20,26 @@ struct AddrInfo {
 
 fn main() {
     let socket = UdpSocket::bind((Ipv6Addr::UNSPECIFIED, 2026)).unwrap();
-    let geoip = unsafe {
-        maxminddb::Reader::open_mmap("./GeoLite2-Country.mmdb")
-            .expect("failed to open IP geo database")
-    };
+    let geoip = GeoIpDb::new();
+    let mut db = GeneralIpDb::new();
 
     let mut buf = [0; 32];
 
-    let mut active_addrs: HashMap<IpAddr, AddrInfo> = HashMap::with_capacity(8192);
-    // Seeds are stored as an i64 to prevent any overflow issues
-    let mut country_seeds: HashMap<u16, i64> =
-        HashMap::from_iter(COUNTRY_CODES.iter().map(|&k| (k, 0)));
-    let mut global_seed = 0_i64;
+    let mut start = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
 
-    let mut start = Instant::now();
+    // Initial cleanup run in case server was shut down
+    db.cleanup(start);
 
     loop {
         let Ok((n, addr)) = socket.recv_from(&mut buf) else {
+            continue;
+        };
+
+        // Only IPv4 for now, consider using a more advanced structure in the future as a DB
+        let IpAddr::V4(addr_v4) = addr.ip().to_canonical() else {
             continue;
         };
 
@@ -39,72 +47,45 @@ fn main() {
             continue;
         };
 
-        let now = Instant::now();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-        if let Some(addr_info) = active_addrs.get_mut(&addr.ip()) {
-            if now.duration_since(addr_info.last_seen) > Duration::from_secs(10) {
-                addr_info.last_seen = now;
-                global_seed += (heartbeat.seed as i64 - global_seed) / 2000;
+        let bucket_info = db.lookup_ip(addr_v4);
 
-                if let Some(country) = addr_info.country
-                    && let Some(country_seed) = country_seeds.get_mut(&country)
-                {
-                    *country_seed += (heartbeat.seed as i64 - *country_seed) / 2000;
-                };
-            }
-        } else {
-            let country = geoip
-                .lookup(addr.ip())
-                .ok()
-                .and_then(|res| {
-                    res.decode_path::<&str>(&[
-                        PathElement::Key("country"),
-                        PathElement::Key("iso_code"),
-                    ])
-                    .unwrap()
-                })
-                .map(|code| encode_code(code.as_bytes()));
-
-            active_addrs.insert(
-                addr.ip(),
-                AddrInfo {
-                    last_seen: now,
-                    country,
-                },
-            );
-
-            // No, it's not DRY. But it does work for now.
-            global_seed += (heartbeat.seed as i64 - global_seed) / 2000;
-            if let Some(country) = country
-                && let Some(country_seed) = country_seeds.get_mut(&country)
-            {
-                *country_seed += (heartbeat.seed as i64 - *country_seed) / 2000;
-            };
+        if bucket_info.last_seen == 0 {
+            bucket_info.first_seen = now;
+            bucket_info.country = geoip.lookup_ip(addr.ip()).unwrap_or_default();
         }
 
-        let stats = if heartbeat.wants_country == 0 {
-            continue;
-        } else if let Some(country_seed) = country_seeds.get(&heartbeat.wants_country) {
-            Stats {
-                connected: active_addrs
-                    .values()
-                    .filter(|x| x.country == Some(heartbeat.wants_country))
-                    .count() as u32,
-                seed: *country_seed as i32,
-            }
-        } else {
-            Stats {
-                connected: active_addrs.len() as u32,
-                seed: global_seed as i32,
-            }
-        };
+        if now - bucket_info.last_seen > 10 {
+            bucket_info.last_seen = now;
 
-        let stats = postcard::to_slice(&stats, &mut buf).unwrap();
-        let _ = socket.send_to(stats, addr);
+            let country = bucket_info.country;
+            if country != 0 {
+                let country_seed = db.lookup_country(country);
+                country_seed.seed += (heartbeat.seed as i64 - country_seed.seed) / 2000;
+            }
 
-        if now.duration_since(start) > Duration::from_secs(20) {
+            let global_seed = db.lookup_country(WORLDWIDE);
+            global_seed.seed += (heartbeat.seed as i64 - global_seed.seed) / 2000;
+        }
+
+        if heartbeat.wants_country != 0 {
+            let wants_seed = db.lookup_country(heartbeat.wants_country).seed;
+
+            let stats = Stats {
+                connected: 0,
+                seed: wants_seed as i32,
+            };
+            let stats = postcard::to_slice(&stats, &mut buf).unwrap();
+            let _ = socket.send_to(stats, addr);
+        }
+
+        if now - start > 20 {
+            db.cleanup(now);
             start = now;
-            active_addrs.retain(|_, v| v.last_seen.duration_since(now) > Duration::from_secs(30));
         }
     }
 }

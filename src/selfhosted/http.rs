@@ -10,7 +10,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use melodybrain::encode_code;
+use melodybrain::{WORLDWIDE, search_country};
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
@@ -61,9 +61,13 @@ enum SeedType {
 
 #[axum::debug_handler]
 async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json<Data> {
-    let stats = state
-        .send_heartbeat(encode_code(form.country.to_ascii_uppercase().as_bytes()))
-        .await;
+    let country_code = search_country(&form.country.to_ascii_uppercase()).unwrap_or(WORLDWIDE);
+
+    let stats = loop {
+        if let Some(stats) = state.send_heartbeat(country_code).await {
+            break stats;
+        }
+    };
 
     let seed = match form.seed {
         SeedType::Local => state.local_seed.load(Ordering::Relaxed),
@@ -75,8 +79,6 @@ async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json
             new
         }
     };
-
-    dbg!(seed);
 
     let notes: Vec<_> = NoteGenerator::new(form.idx, seed).take(128).collect();
     Json(Data {

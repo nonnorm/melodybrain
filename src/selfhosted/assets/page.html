@@ -109,7 +109,6 @@
                     Editor: Fritz Lekschas
                     License: CC BY-SA 3.0
                     ID: ISO 3166-1 or &quot;_[a-zA-Z]&quot; if an ISO code is not available</desc>
-                <path id="_somaliland" d="m512.7 502.8 3.5 2.4h1l8.8-3 1 3.1-.7 2.8-1.9 1.5-4.7-.3-6.8-4.2z" />
                 <path id="ae" d="m528.5 468.1.7 3 8.5.8.6-6.2 1.7-.9.4-2.2-2.7.7-3 4.5z" />
                 <path id="af"
                     d="m545.9 435.4 1.3 10.8 3.4.7.4 2-2.5 2 4.6 3.7 8.9-3.2.7-3.8 5.6-3.5 2.1-8 1.6-1.8-1.6-2.9 5.4-3.3-.7-1-2.5.1-.2 2.3H569v-3l-1.1-1.3-1.9 1.6.1 1.5-2.7 1-5.1-.3-6.6 7z" />
@@ -199,12 +198,12 @@
                 <path id="cz" d="M437.2 399h3.8l2 1.4 3.9-3.2-3.7-2.6-3.7-1.8-2.5.5-3.3 2.2z" />
                 <path id="de"
                     d="m422.3 384.2 3-.5v-2.1l2.6-.5 1.4 1.5 1.5.1 2.4-1 2 .6 1.9 1.6.2 6 1.9 2.4-2.4.3-4 2.5.3.9 3.6 3.3-.3 1.7-3.3 1.7h-3l-.8 1.7h-1.6l-.8-1.7-2.7-.7-.1-2.8-1.4-.7.1-1.9-.4-1.3-2-1.8.4-2.9 2.2-1z" />
+                <path id="dj" d="m509 499.8-.5 2.9h3.4v-4.3l-1.2-.8z" />
                 <g id="dk">
                     <path d="m427.1 370-3.6 4v2.6l1.5 4.3 2.6-.5-.3-3.5 1.7-2v-1.5l-1.2-3.2z" />
                     <path
                         d="m429 377.4-1 .2v1.6l1 .8 1-.2-.2-1.5zm3.3-1.6-1 .3-1 1 .4 1.9 1.3.5-1.3.5-.2.7h2l.6-1-.8-.4.2-1 1-1.2-.3-1z" />
                 </g>
-                <path id="dj" d="m509 499.8-.5 2.9h3.4v-4.3l-1.2-.8z" />
                 <path id="dm" d="m256.2 485.4-.7 1.6.9 1.2 1.1-1z" />
                 <path id="do" d="m242.4 481.5-4.5-3-3-1-.5 5.5h.6l.7 1.5 1-1.2 3-.8 2.4.6z" />
                 <path id="dz"
@@ -435,8 +434,11 @@
                 <path id="sl" d="m372.8 509.8 4.9 4.7 3.5-4.2-2.2-3.4-3 .3z" />
                 <path id="sn"
                     d="m372.4 498.8-5.8-.2 1.1 2.6.6-1.6 7.3.8h4.2l.1-1.4-3.1-3.8-3.5-4.7-2.1-.8-1.7.4-3.4 2.4-.8 1.4-.2 1.4 1.2 1 4.2-.1 2.7-.8.3 1.3-.2 1.8z" />
-                <path id="so"
-                    d="m526.7 502 3.8-1.5 1.3.8-.1 3.3-3.5 10-18.9 20.2-2.1-1.5-.2-8.6 2.8-3.2 6-1.9 8.9-9.3 2.3-2 .6-3z" />
+                <g id="so">
+                    <path
+                        d="m526.7 502 3.8-1.5 1.3.8-.1 3.3-3.5 10-18.9 20.2-2.1-1.5-.2-8.6 2.8-3.2 6-1.9 8.9-9.3 2.3-2 .6-3z" />
+                    <path d="m512.7 502.8 3.5 2.4h1l8.8-3 1 3.1-.7 2.8-1.9 1.5-4.7-.3-6.8-4.2z" />
+                </g>
                 <path id="sr" d="m268.4 516.7 1.7 1.6 2.8-1.7 2.5.1-.4 1-1 2.2-.2 5.4-5 2 .3-3.5-3.2-3 .2-1.5z" />
                 <path id="ss"
                     d="m489.3 508-2 1 .6 3.5h2.6l3.4 5-2.7.3-.7 1.3-.1 1.9-8.3-.2-.9-1.3-5.8-.3-10.6-11 1-.6 4.6-1.4 9.9.8 3.3-.8 2.3-3z" />
@@ -556,16 +558,15 @@
         };
 
         for (const countryEl of worldMapEl.querySelectorAll("[id]")) {
-            if (countryEl.id.length === 2)
-                countryEl.onclick = () => {
-                    document.getElementById(selected_country)?.classList.remove("active");
-                    if (selected_country === countryEl.id) selected_country = "XW";
-                    else {
-                        selected_country = countryEl.id;
-                        countryEl.classList.add("active");
-                    }
-                    restartCtx();
+            countryEl.onclick = () => {
+                document.getElementById(selected_country)?.classList.remove("active");
+                if (selected_country === countryEl.id) selected_country = "XW";
+                else {
+                    selected_country = countryEl.id;
+                    countryEl.classList.add("active");
                 }
+                restartCtx();
+            }
         }
 
         getNewData();

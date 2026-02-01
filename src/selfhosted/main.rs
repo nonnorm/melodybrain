@@ -1,13 +1,5 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicI32, AtomicU16, AtomicU32},
-};
-
-use melodybrain::{WORLDWIDE, encode_code};
-use tokio::{
-    net::{TcpListener, UdpSocket},
-    sync::Notify,
-};
+use std::sync::{Arc, atomic::AtomicI32};
+use tokio::net::{TcpListener, UdpSocket};
 
 mod http;
 mod notes;
@@ -37,6 +29,7 @@ async fn main() {
 
     connector
         .connect("ravenclaw900.duckdns.org:2026")
+        // .connect("localhost:2026")
         .await
         .expect("failed to connect to main server - run your own perhaps ;)");
 

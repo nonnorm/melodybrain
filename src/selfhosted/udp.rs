@@ -12,30 +12,32 @@ use tokio::{
 use crate::{State, http::ArcState};
 
 impl State {
-    pub async fn send_heartbeat(&self, country: u16) -> Stats {
+    pub async fn send_heartbeat(&self, country: u8) -> Option<Stats> {
         let mut buf = [0; 32];
 
-        loop {
-            let local_seed = self.local_seed.load(Ordering::Relaxed);
-            let heartbeat = Heartbeat {
-                seed: local_seed,
-                wants_country: country,
-            };
-            let msg = postcard::to_slice(&heartbeat, &mut buf).unwrap();
-            let _ = self.sock.send(msg).await;
+        let local_seed = self.local_seed.load(Ordering::Relaxed);
+        let heartbeat = Heartbeat {
+            seed: local_seed,
+            wants_country: country,
+        };
+        let msg = postcard::to_slice(&heartbeat, &mut buf).unwrap();
+        let _ = self.sock.send(msg).await;
 
-            let Ok(Ok(n)) =
-                tokio::time::timeout(Duration::from_secs(2), self.sock.recv(&mut buf)).await
-            else {
-                continue;
-            };
-
-            let Ok(stats) = postcard::from_bytes::<Stats>(&buf[..n]) else {
-                continue;
-            };
-
-            return stats;
+        if country == 0 {
+            return None;
         }
+
+        let Ok(Ok(n)) =
+            tokio::time::timeout(Duration::from_secs(2), self.sock.recv(&mut buf)).await
+        else {
+            return None;
+        };
+
+        let Ok(stats) = postcard::from_bytes::<Stats>(&buf[..n]) else {
+            return None;
+        };
+
+        return Some(stats);
     }
 }
 
