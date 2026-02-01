@@ -3,9 +3,9 @@ use std::{
     net::{IpAddr, Ipv4Addr},
 };
 
-use bytemuck::{cast_slice_mut, from_bytes_mut};
+use bytemuck::{cast_slice_mut, from_bytes, from_bytes_mut};
 use maxminddb::{PathElement, Reader};
-use melodybrain::{StoredCountryStats, StoredIpStats, search_country};
+use melodybrain::{COUNTRIES, StoredCountryStats, StoredIpStats, WORLDWIDE, search_country};
 use memmap2::{Mmap, MmapMut};
 
 pub struct GeoIpDb(Reader<Mmap>);
@@ -59,14 +59,19 @@ impl GeneralIpDb {
         Self(db)
     }
 
-    pub fn cleanup(&mut self, now: u64) {
+    fn split(&mut self) -> (&mut [StoredIpStats], &mut [StoredCountryStats]) {
         let start = const { Ipv4Addr::new(1, 0, 0, 0).to_bits() >> 8 } as usize;
         let end = const { Ipv4Addr::new(223, 255, 255, 255).to_bits() >> 8 } as usize;
 
         let (countries, ips) = self.0.split_at_mut(start);
-
-        let records: &mut [StoredIpStats] = cast_slice_mut(&mut ips[start..=end]);
+        let ips: &mut [StoredIpStats] = cast_slice_mut(&mut ips[start..=end]);
         let countries: &mut [StoredCountryStats] = cast_slice_mut(&mut countries[0..start]);
+
+        (ips, countries)
+    }
+
+    pub fn cleanup(&mut self, now: u64) {
+        let (records, countries) = self.split();
 
         for record in records {
             if record.first_seen != 0 {
@@ -74,14 +79,17 @@ impl GeneralIpDb {
                 if diff > 10 {
                     record.cum_duration += diff as u32;
                     record.last_seen = 0;
+
                     let country = &mut countries[record.country as usize];
                     country.active = country.active.saturating_sub(1);
+                    let global = &mut countries[WORLDWIDE as usize];
+                    global.active = global.active.saturating_sub(1);
                 }
             }
         }
     }
 
-    pub fn lookup_ip(&mut self, addr: Ipv4Addr) -> &mut StoredIpStats {
+    pub fn lookup_ip_mut(&mut self, addr: Ipv4Addr) -> &mut StoredIpStats {
         let ip_bucket = addr.to_bits() >> 8;
         let start_idx = ip_bucket as usize * 32;
         let end_idx = start_idx + 32;
@@ -89,10 +97,30 @@ impl GeneralIpDb {
         from_bytes_mut(&mut self.0[start_idx..end_idx])
     }
 
-    pub fn lookup_country(&mut self, country: u8) -> &mut StoredCountryStats {
+    pub fn lookup_country_mut(&mut self, country: u8) -> &mut StoredCountryStats {
         let start_idx = country as usize * 32;
         let end_idx = start_idx + 32;
 
         from_bytes_mut(&mut self.0[start_idx..end_idx])
     }
+
+    pub fn lookup_country(&self, country: u8) -> &StoredCountryStats {
+        let start_idx = country as usize * 32;
+        let end_idx = start_idx + 32;
+
+        from_bytes(&self.0[start_idx..end_idx])
+    }
+
+    pub fn get_country_heatmap(&self) -> [f32; COUNTRIES.len()] {
+        let world_total = self.lookup_country(WORLDWIDE).active as f32;
+
+        std::array::from_fn(|idx| self.lookup_country(idx as u8).active as f32 / world_total)
+    }
+
+    // pub fn lookup_ip_and_country(
+    //     &mut self,
+    //     addr: Ipv4Addr,
+    // ) -> (&mut StoredIpStats, &mut StoredCountryStats) {
+    //     self.0.split_at_mut(mid)
+    // }
 }

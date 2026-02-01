@@ -71,6 +71,10 @@
         #world-map [id] {
             cursor: pointer;
 
+            --fract: 0;
+
+            fill: color-mix(in oklch, #ec8856 calc(var(--fract) * 100%), #e9e9e9);
+
             &.active {
                 fill: #67b9fc;
             }
@@ -104,7 +108,7 @@
         </select>
         <section>
             <svg xmlns="http://www.w3.org/2000/svg" id="world-map" width="80vw" height="80vh"
-                viewBox="30.8 241.6 784.1 458.6" fill="#ececec">
+                viewBox="30.8 241.6 784.1 458.6">
                 <desc>Author: Al MacDonald
                     Editor: Fritz Lekschas
                     License: CC BY-SA 3.0
@@ -529,6 +533,8 @@
         const selectEl = document.getElementById("seed-selector");
         const worldMapEl = document.getElementById("world-map");
 
+        const countries = worldMapEl.querySelectorAll("[id]");
+
         let selected_seed = selectEl.value;
         let idx = 0;
         let selected_country = "XW";
@@ -548,6 +554,8 @@
                 playSingleFrequency(pitch, velocity, durSeconds, startTime, idx === pitches.notes.length - 2);
                 startTime += durSeconds * .85;
             });
+
+            pitches.heatmap.forEach((val, idx) => countries[idx].style = `--fract: ${val}`)
         };
 
         const restartCtx = () => {

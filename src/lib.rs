@@ -11,6 +11,8 @@ pub struct Heartbeat {
 pub struct Stats {
     pub connected: u32,
     pub seed: i32,
+    #[serde(with = "serde_arrays")]
+    pub country_heatmap: [f32; COUNTRIES.len()],
 }
 
 #[derive(Clone, Copy, Debug, Pod, Zeroable, Default)]
@@ -42,6 +44,11 @@ pub fn search_country(code: &str) -> Option<u8> {
         .map(|x| x as u8)
 }
 
+pub fn get_country_name(idx: u8) -> &'static str {
+    // SAFETY: Guaranteed to be ASCII, so no issues with this
+    unsafe { str::from_utf8_unchecked(&COUNTRIES[idx as usize].0) }
+}
+
 // pub fn iter_map_countries() -> impl Iterator<Item = u8> {
 //     let code_bytes: [u8; 2] = code.as_bytes().try_into().ok()?;
 //     COUNTRIES
@@ -51,7 +58,9 @@ pub fn search_country(code: &str) -> Option<u8> {
 // }
 
 // ISO 3166-1 alpha-2 country codes, including whether or not they're included in the world map
-pub static COUNTRIES: [([u8; 2], bool); 251] = [
+pub static COUNTRIES: [([u8; 2], bool); 252] = [
+    // AA is explicitly reserved and will never be a real country
+    (*b"AA", false),
     (*b"AD", false),
     (*b"AE", true),
     (*b"AF", true),
@@ -306,4 +315,4 @@ pub static COUNTRIES: [([u8; 2], bool); 251] = [
 ];
 
 // Non-standard global code (XW)
-pub const WORLDWIDE: u8 = 245;
+pub const WORLDWIDE: u8 = 246;

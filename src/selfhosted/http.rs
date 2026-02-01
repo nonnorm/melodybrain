@@ -10,7 +10,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use melodybrain::{WORLDWIDE, search_country};
+use melodybrain::{COUNTRIES, WORLDWIDE, search_country};
 use serde::{Deserialize, Serialize};
 use tokio::net::UdpSocket;
 
@@ -40,6 +40,7 @@ pub struct Data {
     notes: Vec<Note>,
     seed: i32,
     connected: u32,
+    heatmap: Vec<f32>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -80,10 +81,18 @@ async fn data(State(state): State<ArcState>, Form(form): Form<DataForm>) -> Json
         }
     };
 
+    let heatmap: Vec<f32> = stats
+        .country_heatmap
+        .into_iter()
+        .enumerate()
+        .filter_map(|(idx, x)| COUNTRIES[idx].1.then_some(x))
+        .collect();
+
     let notes: Vec<_> = NoteGenerator::new(form.idx, seed).take(128).collect();
     Json(Data {
         notes,
         seed,
         connected: stats.connected,
+        heatmap,
     })
 }

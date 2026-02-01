@@ -13,7 +13,7 @@ use crate::{State, http::ArcState};
 
 impl State {
     pub async fn send_heartbeat(&self, country: u8) -> Option<Stats> {
-        let mut buf = [0; 32];
+        let mut buf = [0; 1200];
 
         let local_seed = self.local_seed.load(Ordering::Relaxed);
         let heartbeat = Heartbeat {
@@ -37,7 +37,7 @@ impl State {
             return None;
         };
 
-        return Some(stats);
+        Some(stats)
     }
 }
 

@@ -23,7 +23,7 @@ fn main() {
     let geoip = GeoIpDb::new();
     let mut db = GeneralIpDb::new();
 
-    let mut buf = [0; 32];
+    let mut buf = [0; 1200];
 
     let mut start = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -52,32 +52,62 @@ fn main() {
             .unwrap()
             .as_secs();
 
-        let bucket_info = db.lookup_ip(addr_v4);
+        let bucket_info = db.lookup_ip_mut(addr_v4);
 
-        if bucket_info.last_seen == 0 {
+        if bucket_info.first_seen == 0 && bucket_info.last_seen == 0 {
             bucket_info.first_seen = now;
-            bucket_info.country = geoip.lookup_ip(addr.ip()).unwrap_or_default();
-        }
+            bucket_info.last_seen = now;
 
-        if now - bucket_info.last_seen > 10 {
+            let country = geoip.lookup_ip(addr.ip()).unwrap_or_default();
+            bucket_info.country = country;
+
+            let country_stats = db.lookup_country_mut(country);
+            country_stats.active += 1;
+            country_stats.unique += 1;
+
+            let global_stats = db.lookup_country_mut(WORLDWIDE);
+            global_stats.active += 1;
+            global_stats.unique += 1;
+        } else if bucket_info.first_seen != 0 && bucket_info.last_seen == 0 {
+            bucket_info.first_seen = now;
             bucket_info.last_seen = now;
 
             let country = bucket_info.country;
-            if country != 0 {
-                let country_seed = db.lookup_country(country);
-                country_seed.seed += (heartbeat.seed as i64 - country_seed.seed) / 2000;
-            }
+            let country_stats = db.lookup_country_mut(country);
+            country_stats.active += 1;
 
-            let global_seed = db.lookup_country(WORLDWIDE);
+            let global_stats = db.lookup_country_mut(WORLDWIDE);
+            global_stats.active += 1;
+        }
+
+        // Reborrow to satisfy borrow checker
+        let bucket_info = db.lookup_ip_mut(addr_v4);
+
+        if now - bucket_info.last_seen > 10 {
+            let diff = (now - bucket_info.last_seen) as u32;
+            bucket_info.cum_duration += diff;
+
+            bucket_info.last_seen = now;
+            bucket_info.hits += 1;
+
+            let country = bucket_info.country;
+            let country_seed = db.lookup_country_mut(country);
+            country_seed.seed += (heartbeat.seed as i64 - country_seed.seed) / 2000;
+            country_seed.cum_duration += diff;
+
+            let global_seed = db.lookup_country_mut(WORLDWIDE);
             global_seed.seed += (heartbeat.seed as i64 - global_seed.seed) / 2000;
+            global_seed.cum_duration += diff;
         }
 
         if heartbeat.wants_country != 0 {
-            let wants_seed = db.lookup_country(heartbeat.wants_country).seed;
+            let country = db.lookup_country_mut(heartbeat.wants_country);
 
             let stats = Stats {
-                connected: 0,
-                seed: wants_seed as i32,
+                connected: country.active,
+                seed: country.seed as i32,
+                // It might be somewhat inefficient to recalculate this every time a request is made, but it's only 250 countries
+                country_heatmap: db.get_country_heatmap(),
             };
             let stats = postcard::to_slice(&stats, &mut buf).unwrap();
             let _ = socket.send_to(stats, addr);
